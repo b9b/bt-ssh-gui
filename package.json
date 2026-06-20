@@ -1,0 +1,62 @@
+{
+  "name": "bt-ssh-gui",
+  "version": "0.1.0",
+  "description": "宝塔站点专用 SSH 账号管理工具",
+  "main": "src/main/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "start": "electron .",
+    "package": "npm run build && electron-builder"
+  },
+  "keywords": [
+    "electron",
+    "ssh",
+    "baota",
+    "bt-panel"
+  ],
+  "author": "LaoGuo <mugood@qq.com> (https://www.hynote.cn)",
+  "homepage": "https://www.hynote.cn",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/b9b/bt-ssh-gui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/b9b/bt-ssh-gui/issues"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "autoprefixer": "^10.4.23",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "vite": "^8.0.16",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "cn.hynote.bt-ssh-gui",
+    "productName": "宝塔站点 SSH",
+    "files": [
+      "dist/**/*",
+      "src/assets/**/*",
+      "src/main/**/*",
+      "src/preload/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.developer-tools"
+    }
+  }
+}
