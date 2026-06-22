@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -64,9 +64,9 @@ jobs:
 
       - name: Setup Node
         if: steps.existing.outputs.skip != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -88,7 +88,11 @@ jobs:
 
       - name: Build package
         if: steps.existing.outputs.skip != 'true'
-        run: npm run package
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: |
+          trap 'echo "dist contents:"; find dist -maxdepth 1 -type f -print 2>/dev/null || true' EXIT
+          npm run package
 
       - name: Write release notes
         if: steps.existing.outputs.skip != 'true'
@@ -125,6 +129,8 @@ jobs:
           ZIP_PATH="$(find dist -maxdepth 1 -type f -name "*$VERSION*-mac.zip" | head -n 1)"
           test -f "$DMG_PATH"
           test -f "$ZIP_PATH"
+          echo "Uploading $DMG_PATH"
+          echo "Uploading $ZIP_PATH"
 
           if [ "$RELEASE_EXISTS" != "true" ]; then
             gh release create "$TAG" \
