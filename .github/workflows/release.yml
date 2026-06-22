@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -56,13 +56,46 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Write release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cat > release-notes.md <<EOF
+          ## 宝塔站点 SSH v$VERSION
+
+          修复站点路径位于其他网站子目录中时，专用 SSH 用户因上级目录缺少穿透权限导致访问不足的问题。
+
+          ### 修复
+
+          - 启用站点 SSH 时，为目标站点路径的上级目录追加仅可进入的 ACL
+          - 不开放上级目录读取列表或写入权限，站点目录内部仍按原逻辑授权
+          - 禁用站点 SSH 时同步清理上级目录 ACL
+          - 站点权限测试新增路径进入检查，并扩大子目录测试范围
+
+          ### 下载
+
+          - \`SSH-$VERSION.dmg\`
+          - \`SSH-$VERSION-mac.zip\`
+          EOF
+
+      - name: Update existing release notes
+        if: steps.existing.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release edit "$TAG" \
+            --title "宝塔站点 SSH v$VERSION" \
+            --notes-file release-notes.md
+
       - name: Stop if release assets already exist
         if: steps.existing.outputs.skip == 'true'
-        run: echo "Release ${{ steps.version.outputs.tag }} already has dmg/zip assets; nothing to publish."
+        run: echo "Release ${{ steps.version.outputs.tag }} already has dmg/zip assets; notes refreshed."
 
       - name: Setup Node
         if: steps.existing.outputs.skip != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -92,29 +125,6 @@ jobs:
           trap 'echo "dist contents:"; find dist -maxdepth 1 -type f -print 2>/dev/null || true' EXIT
           npm run package
 
-      - name: Write release notes
-        if: steps.existing.outputs.skip != 'true'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          cat > release-notes.md <<EOF
-          ## 宝塔站点 SSH v$VERSION
-
-          修复站点路径位于其他网站子目录中时，专用 SSH 用户因上级目录缺少穿透权限导致访问不足的问题。
-
-          ### 修复
-
-          - 启用站点 SSH 时，为目标站点路径的上级目录追加仅可进入的 ACL
-          - 不开放上级目录读取列表或写入权限，站点目录内部仍按原逻辑授权
-          - 禁用站点 SSH 时同步清理上级目录 ACL
-          - 站点权限测试新增路径进入检查，并扩大子目录测试范围
-
-          ### 下载
-
-          - \`宝塔站点 SSH-$VERSION.dmg\`
-          - \`宝塔站点 SSH-$VERSION-mac.zip\`
-          EOF
-
       - name: Publish release
         if: steps.existing.outputs.skip != 'true'
         env:
@@ -127,8 +137,13 @@ jobs:
           ZIP_PATH="$(find dist -maxdepth 1 -type f -name "*$VERSION*-mac.zip" | head -n 1)"
           test -f "$DMG_PATH"
           test -f "$ZIP_PATH"
-          echo "Uploading $DMG_PATH"
-          echo "Uploading $ZIP_PATH"
+
+          DMG_UPLOAD="dist/SSH-$VERSION.dmg"
+          ZIP_UPLOAD="dist/SSH-$VERSION-mac.zip"
+          [ "$DMG_PATH" = "$DMG_UPLOAD" ] || cp "$DMG_PATH" "$DMG_UPLOAD"
+          [ "$ZIP_PATH" = "$ZIP_UPLOAD" ] || cp "$ZIP_PATH" "$ZIP_UPLOAD"
+          echo "Uploading $DMG_UPLOAD"
+          echo "Uploading $ZIP_UPLOAD"
 
           if [ "$RELEASE_EXISTS" != "true" ]; then
             gh release create "$TAG" \
@@ -136,7 +151,7 @@ jobs:
               --notes-file release-notes.md
           fi
 
-          gh release upload "$TAG" "$DMG_PATH" "$ZIP_PATH" --clobber
+          gh release upload "$TAG" "$DMG_UPLOAD" "$ZIP_UPLOAD" --clobber
           gh release edit "$TAG" \
             --title "宝塔站点 SSH v$VERSION" \
             --notes-file release-notes.md
