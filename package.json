@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "start": "electron .",
-    "package": "npm run build && electron-builder"
+    "package": "npm run build && electron-builder --publish never"
   },
   "keywords": [
     "electron",
