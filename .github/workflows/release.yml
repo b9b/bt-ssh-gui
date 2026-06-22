@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       force_upload:
@@ -41,19 +43,24 @@ jobs:
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
+            ASSET_COUNT="$(gh release view "$TAG" --json assets --jq '[.assets[].name | select(endswith(".dmg") or endswith("-mac.zip"))] | length')"
+            echo "asset_count=$ASSET_COUNT" >> "$GITHUB_OUTPUT"
             if [ "$FORCE_UPLOAD" = "true" ]; then
               echo "skip=false" >> "$GITHUB_OUTPUT"
-            else
+            elif [ "$ASSET_COUNT" -ge 2 ]; then
               echo "skip=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "skip=false" >> "$GITHUB_OUTPUT"
             fi
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "asset_count=0" >> "$GITHUB_OUTPUT"
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Stop if release already exists
+      - name: Stop if release assets already exist
         if: steps.existing.outputs.skip == 'true'
-        run: echo "Release ${{ steps.version.outputs.tag }} already exists; nothing to publish."
+        run: echo "Release ${{ steps.version.outputs.tag }} already has dmg/zip assets; nothing to publish."
 
       - name: Setup Node
         if: steps.existing.outputs.skip != 'true'
@@ -114,18 +121,18 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           RELEASE_EXISTS: ${{ steps.existing.outputs.exists }}
         run: |
-          if [ "$RELEASE_EXISTS" = "true" ]; then
-            gh release upload "$TAG" \
-              "dist/宝塔站点 SSH-$VERSION.dmg" \
-              "dist/宝塔站点 SSH-$VERSION-mac.zip" \
-              --clobber
-            gh release edit "$TAG" \
-              --title "宝塔站点 SSH v$VERSION" \
-              --notes-file release-notes.md
-          else
+          DMG_PATH="$(find dist -maxdepth 1 -type f -name "*$VERSION*.dmg" | head -n 1)"
+          ZIP_PATH="$(find dist -maxdepth 1 -type f -name "*$VERSION*-mac.zip" | head -n 1)"
+          test -f "$DMG_PATH"
+          test -f "$ZIP_PATH"
+
+          if [ "$RELEASE_EXISTS" != "true" ]; then
             gh release create "$TAG" \
-              "dist/宝塔站点 SSH-$VERSION.dmg" \
-              "dist/宝塔站点 SSH-$VERSION-mac.zip" \
               --title "宝塔站点 SSH v$VERSION" \
               --notes-file release-notes.md
           fi
+
+          gh release upload "$TAG" "$DMG_PATH" "$ZIP_PATH" --clobber
+          gh release edit "$TAG" \
+            --title "宝塔站点 SSH v$VERSION" \
+            --notes-file release-notes.md
